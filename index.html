@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NBA Draft League - Live Win Tracker</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        nbaDark: '#070a12',
+                        nbaCard: '#0f172a',
+                        nbaBorder: '#1e293b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #070a12;
+            color: #f8fafc;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .gold-border {
+            border-color: rgba(245, 158, 11, 0.6);
+            box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.25);
+        }
+        .silver-border {
+            border-color: rgba(148, 163, 184, 0.5);
+            box-shadow: 0 0 20px -5px rgba(148, 163, 184, 0.15);
+        }
+        .bronze-border {
+            border-color: rgba(217, 119, 6, 0.5);
+            box-shadow: 0 0 20px -5px rgba(217, 119, 6, 0.15);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #070a12; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col pb-12 selection:bg-blue-600 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-slate-800/80 bg-slate-900/90 sticky top-0 z-50 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            
+            <div class="flex items-center space-x-3">
+                <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-orange-600 via-red-600 to-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-orange-900/20">
+                    <i class="fa-solid fa-basketball"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="font-black text-xl sm:text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-slate-300">
+                            NBA DRAFT TRACKER
+                        </h1>
+                        <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            Live Standings
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400 font-medium">3 Draft Lists • 10 NBA Teams Each • Regular Season Race</p>
+                </div>
+            </div>
+
+            <!-- Controls & Sync Engine Header Bar -->
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                <!-- Auto-sync Interval dropdown -->
+                <div class="hidden sm:flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60 text-xs">
+                    <i class="fa-solid fa-arrows-rotate text-slate-400"></i>
+                    <span class="text-slate-400">Auto-Sync:</span>
+                    <select id="syncIntervalSelect" onchange="updateSyncInterval()" class="bg-transparent text-amber-400 font-bold focus:outline-none cursor-pointer">
+                        <option value="60000" class="bg-slate-900 text-white" selected>Every 1 Min</option>
+                        <option value="300000" class="bg-slate-900 text-white">Every 5 Mins</option>
+                        <option value="900000" class="bg-slate-900 text-white">Every 15 Mins</option>
+                        <option value="0" class="bg-slate-900 text-white">Manual Only</option>
+                    </select>
+                </div>
+
+                <!-- Sync Status Badge -->
+                <div class="text-right hidden md:block">
+                    <div class="text-xs text-slate-300 font-medium flex items-center justify-end space-x-1.5">
+                        <span id="syncPulse" class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                        <span id="syncStatusText">Connected</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400 font-mono" id="lastUpdatedText">Last updated: Syncing...</div>
+                </div>
+
+                <!-- Action Buttons -->
+                <button id="copyLinkBtn" onclick="copyShareableLink()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700/60 transition flex items-center space-x-1.5" title="Copy Website Link">
+                    <i class="fa-solid fa-share-nodes"></i>
+                    <span class="hidden sm:inline">Share</span>
+                </button>
+
+                <button id="manualRefreshBtn" onclick="fetchLiveStandings(true)" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-blue-900/30 transition-all flex items-center space-x-2">
+                    <i id="syncIcon" class="fa-solid fa-rotate"></i>
+                    <span>Sync Live Data</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Notification Toast -->
+    <div id="toastNotification" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-800 border border-slate-700 text-slate-100 text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-2">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMessage">Link copied to clipboard!</span>
+    </div>
+
+    <!-- Main Application Canvas -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 flex-grow w-full">
+
+        <!-- Banner Alert & League Headline -->
+        <div class="mb-8 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 p-6 shadow-2xl relative overflow-hidden">
+            <div class="absolute -right-16 -bottom-16 w-64 h-64 bg-orange-600/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -left-16 -top-16 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                <div>
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="inline-flex items-center space-x-1.5 px-3 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            <i class="fa-solid fa-trophy"></i>
+                            <span>30-Team NBA Draft Championship</span>
+                        </span>
+                        <span id="seasonYearBadge" class="text-xs text-slate-400 font-mono">Live Sync</span>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Regular Season Standings & Win Race</h2>
+                    <p class="text-slate-400 text-xs sm:text-sm mt-1 max-w-2xl">
+                        Whoever's 10 drafted NBA teams accumulate the most combined regular season wins wins the league. Live standings auto-synced directly from official ESPN NBA data.
+                    </p>
+                </div>
+
+                <!-- Leader Summary Cards -->
+                <div id="podiumSummary" class="flex items-center gap-3 w-full lg:w-auto overflow-x-auto pb-2 lg:pb-0">
+                    <div class="animate-pulse flex space-x-3 w-full">
+                        <div class="h-20 w-32 bg-slate-800/80 rounded-xl"></div>
+                        <div class="h-20 w-32 bg-slate-800/80 rounded-xl"></div>
+                        <div class="h-20 w-32 bg-slate-800/80 rounded-xl"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Standings Leaderboard Cards -->
+        <section class="mb-10">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-extrabold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-ranking-star text-amber-400"></i>
+                    <span>Leaderboard</span>
+                </h3>
+                <div class="text-xs text-slate-400">
+                    Max Season Games: <span class="text-slate-200 font-bold">820 Games</span>
+                </div>
+            </div>
+
+            <div id="playerLeaderboardGrid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Rendered dynamically -->
+            </div>
+        </section>
+
+        <!-- Detailed Rosters & Search Filter Header -->
+        <section class="mb-8">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-slate-800 pb-4 mb-6 gap-4">
+                
+                <!-- Player Filter Tabs -->
+                <div class="flex space-x-1.5 bg-slate-900 p-1.5 rounded-xl border border-slate-800 w-full md:w-auto overflow-x-auto">
+                    <button id="tab-all" onclick="setActiveTab('all')" class="tab-btn px-4 py-2 rounded-lg text-xs font-bold transition-all bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md">
+                        All Teams (30)
+                    </button>
+                    <button id="tab-Ron" onclick="setActiveTab('Ron')" class="tab-btn px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all">
+                        Ron's Teams (10)
+                    </button>
+                    <button id="tab-David" onclick="setActiveTab('David')" class="tab-btn px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all">
+                        David's Teams (10)
+                    </button>
+                    <button id="tab-Nii" onclick="setActiveTab('Nii')" class="tab-btn px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all">
+                        Nii's Teams (10)
+                    </button>
+                </div>
+
+                <!-- Search & Sort Controls -->
+                <div class="flex items-center space-x-3 w-full md:w-auto">
+                    <div class="relative flex-1 md:w-64">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+                        <input type="text" id="teamSearchInput" oninput="renderRosters()" placeholder="Search team or owner..." 
+                            class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
+                    </div>
+                    <select id="teamSortSelect" onchange="renderRosters()" class="bg-slate-900 border border-slate-800 text-xs text-slate-300 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500">
+                        <option value="wins">Sort: Wins (High-Low)</option>
+                        <option value="winPct">Sort: Win %</option>
+                        <option value="name">Sort: Team Name</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Team Rosters Section Container -->
+            <div id="teamsRosterContainer" class="space-y-8">
+                <!-- Rendered dynamically -->
+            </div>
+        </section>
+
+        <!-- Standalone Deployment Guide Drawer -->
+        <section class="mt-12 mb-8 border border-slate-800 bg-slate-900/60 rounded-2xl p-6">
+            <div class="flex items-center justify-between cursor-pointer" onclick="toggleGuide()">
+                <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold text-base">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-white">How to Host & Access This Site For Free Online</h4>
+                        <p class="text-xs text-slate-400">Step-by-step instructions for publishing this web app so Ron, David, and Nii can access it via a URL on mobile & PC.</p>
+                    </div>
+                </div>
+                <i id="guideToggleIcon" class="fa-solid fa-chevron-down text-slate-400 transition-transform duration-300"></i>
+            </div>
+
+            <div id="deploymentGuideContent" class="hidden mt-6 pt-6 border-t border-slate-800 text-xs text-slate-300 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Option 1: GitHub Pages -->
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <h5 class="font-bold text-white text-sm mb-2 flex items-center gap-2">
+                            <i class="fa-brands fa-github text-slate-300"></i> GitHub Pages (Recommended)
+                        </h5>
+                        <ol class="list-decimal list-inside space-y-1.5 text-slate-400">
+                            <li>Create a free account at <strong class="text-slate-200">GitHub.com</strong>.</li>
+                            <li>Create a new public repository named <code class="bg-slate-900 px-1 py-0.5 rounded text-amber-400">nba-draft-tracker</code>.</li>
+                            <li>Upload this file as <code class="bg-slate-900 px-1 py-0.5 rounded text-amber-400">index.html</code>.</li>
+                            <li>Go to <strong class="text-slate-200">Settings &gt; Pages</strong> and set Source to <code class="bg-slate-900 px-1 py-0.5 rounded text-amber-400">main branch</code>.</li>
+                            <li>Your custom URL will be live at <code class="text-blue-400">username.github.io/nba-draft-tracker</code>.</li>
+                        </ol>
+                    </div>
+
+                    <!-- Option 2: Netlify Drop -->
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <h5 class="font-bold text-white text-sm mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-globe text-emerald-400"></i> Netlify Drop (Easiest / 30 Secs)
+                        </h5>
+                        <ol class="list-decimal list-inside space-y-1.5 text-slate-400">
+                            <li>Save this file on your computer as <code class="bg-slate-900 px-1 py-0.5 rounded text-amber-400">index.html</code>.</li>
+                            <li>Go to <strong class="text-slate-200">app.netlify.com/drop</strong>.</li>
+                            <li>Drag & drop the folder containing your file into the browser box.</li>
+                            <li>Netlify instantly generates a custom live web URL you can share with your friends.</li>
+                        </ol>
+                    </div>
+
+                    <!-- Option 3: Vercel -->
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <h5 class="font-bold text-white text-sm mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-indigo-400"></i> Vercel Hosting
+                        </h5>
+                        <ol class="list-decimal list-inside space-y-1.5 text-slate-400">
+                            <li>Sign up at <strong class="text-slate-200">Vercel.com</strong> using GitHub.</li>
+                            <li>Click <strong class="text-slate-200">Add New Project</strong> and select your GitHub repository containing <code class="bg-slate-900 px-1 py-0.5 rounded text-amber-400">index.html</code>.</li>
+                            <li>Click <strong class="text-slate-200">Deploy</strong>.</li>
+                            <li>Vercel generates an SSL-secured custom link for instant access.</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/80 bg-slate-900/50 mt-auto py-6">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>NBA Draft League • Ron, David, & Nii Regular Season Tracker</div>
+            <div class="flex items-center space-x-4">
+                <span class="text-slate-400"><i class="fa-solid fa-database text-blue-400 mr-1"></i> Data Source: <span id="dataSourceName" class="text-slate-200 font-mono">ESPN NBA API Direct</span></span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JS Application Logic -->
+    <script>
+        // Exact Draft List Mapping according to draft selections
+        const DRAFT_ROSTERS = {
+            "Ron": [
+                { id: "OKC", name: "Oklahoma City Thunder", espnId: "25", keywords: ["OKC", "THUNDER", "OKLAHOMA CITY"] },
+                { id: "DET", name: "Detroit Pistons", espnId: "8", keywords: ["DETROIT", "PISTONS"] },
+                { id: "MIA", name: "Miami Heat", espnId: "14", keywords: ["MIAMI", "HEAT"] },
+                { id: "ATL", name: "Atlanta Hawks", espnId: "1", keywords: ["ATLANTA", "HAWKS"] },
+                { id: "ORL", name: "Orlando Magic", espnId: "19", keywords: ["ORLANDO", "MAGIC"] },
+                { id: "POR", name: "Portland Trail Blazers", espnId: "22", keywords: ["PORTLAND", "TRAIL BLAZERS", "BLAZERS"] },
+                { id: "UTA", name: "Utah Jazz", espnId: "26", keywords: ["UTAH", "JAZZ"] },
+                { id: "CHI", name: "Chicago Bulls", espnId: "4", keywords: ["CHICAGO", "BULLS"] },
+                { id: "BKN", name: "Brooklyn Nets", espnId: "17", keywords: ["BROOKLYN", "NETS"] },
+                { id: "SAC", name: "Sacramento Kings", espnId: "23", keywords: ["SACRAMENTO", "KINGS"] }
+            ],
+            "David": [
+                { id: "SAS", name: "San Antonio Spurs", espnId: "24", keywords: ["SAN ANTONIO", "SPURS"] },
+                { id: "LAL", name: "LA Lakers", espnId: "13", keywords: ["LOS ANGELES LAKERS", "LAKERS", "LA LAKERS"] },
+                { id: "BOS", name: "Boston Celtics", espnId: "2", keywords: ["BOSTON", "CELTICS"] },
+                { id: "MIN", name: "Minnesota Timberwolves", espnId: "16", keywords: ["MINNESOTA", "TIMBERWOLVES", "WOLVES"] },
+                { id: "HOU", name: "Houston Rockets", espnId: "10", keywords: ["HOUSTON", "ROCKETS"] },
+                { id: "PHX", name: "Phoenix Suns", espnId: "21", keywords: ["PHOENIX", "SUNS"] },
+                { id: "WAS", name: "Washington Wizards", espnId: "27", keywords: ["WASHINGTON", "WIZARDS"] },
+                { id: "NOP", name: "New Orleans Pelicans", espnId: "3", keywords: ["NEW ORLEANS", "PELICANS"] },
+                { id: "GSW", name: "Golden State Warriors", espnId: "9", keywords: ["GOLDEN STATE", "WARRIORS"] },
+                { id: "MIL", name: "Milwaukee Bucks", espnId: "15", keywords: ["MILWAUKEE", "BUCKS"] }
+            ],
+            "Nii": [
+                { id: "NYK", name: "New York Knicks", espnId: "18", keywords: ["NEW YORK", "KNICKS"] },
+                { id: "PHI", name: "Philadelphia 76ers", espnId: "20", keywords: ["PHILADELPHIA", "76ERS", "SIXERS"] },
+                { id: "TOR", name: "Toronto Raptors", espnId: "28", keywords: ["TORONTO", "RAPTORS"] },
+                { id: "CLE", name: "Cleveland Cavaliers", espnId: "5", keywords: ["CLEVELAND", "CAVALIERS", "CAVS"] },
+                { id: "DEN", name: "Denver Nuggets", espnId: "7", keywords: ["DENVER", "NUGGETS"] },
+                { id: "IND", name: "Indiana Pacers", espnId: "11", keywords: ["INDIANA", "PACERS"] },
+                { id: "CHA", name: "Charlotte Hornets", espnId: "30", keywords: ["CHARLOTTE", "HORNETS"] },
+                { id: "DAL", name: "Dallas Mavericks", espnId: "6", keywords: ["DALLAS", "MAVERICKS", "MAVS"] },
+                { id: "MEM", name: "Memphis Grizzlies", espnId: "29", keywords: ["MEMPHIS", "GRIZZLIES"] },
+                { id: "LAC", name: "LA Clippers", espnId: "12", keywords: ["LOS ANGELES CLIPPERS", "CLIPPERS", "LA CLIPPERS"] }
+            ]
+        };
+
+        // Primary & Backup API Endpoints
+        const API_PRIMARY = 'https://site.api.espn.com/apis/v2/sports/basketball/nba/standings';
+        const API_BACKUP = 'https://site.web.api.espn.com/apis/v2/sports/basketball/nba/standings';
+
+        // Styling Tokens per Player
+        const PLAYER_STYLES = {
+            "Ron": {
+                gradient: "from-blue-600 to-indigo-600",
+                badge: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+                avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=RonDraft&backgroundColor=1d4ed8"
+            },
+            "David": {
+                gradient: "from-purple-600 to-pink-600",
+                badge: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+                avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=DavidDraft&backgroundColor=7e22ce"
+            },
+            "Nii": {
+                gradient: "from-emerald-600 to-teal-600",
+                badge: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+                avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=NiiDraft&backgroundColor=047857"
+            }
+        };
+
+        // Application State
+        let teamStatsMap = {};
+        let activeTab = 'all';
+        let syncTimer = null;
+        let isFetching = false;
+
+        // On Page Initialization
+        window.onload = function() {
+            initEmptyTeamStatsMap();
+            renderAll();
+            fetchLiveStandings();
+            updateSyncInterval();
+        };
+
+        // Initialize state structure for all 30 NBA teams
+        function initEmptyTeamStatsMap() {
+            Object.keys(DRAFT_ROSTERS).forEach(player => {
+                DRAFT_ROSTERS[player].forEach(team => {
+                    teamStatsMap[team.id] = {
+                        wins: 0,
+                        losses: 0,
+                        gamesPlayed: 0,
+                        winPct: 0,
+                        streak: "--",
+                        logo: `https://a.espncdn.com/i/teamlogos/nba/500/${team.id.toLowerCase()}.png`,
+                        fullName: team.name,
+                        espnId: team.espnId
+                    };
+                });
+            });
+        }
+
+        // Fetch Live Standings from ESPN API
+        async function fetchLiveStandings(isManual = false) {
+            if (isFetching) return;
+            isFetching = true;
+
+            const syncIcon = document.getElementById('syncIcon');
+            const syncPulse = document.getElementById('syncPulse');
+            const syncStatusText = document.getElementById('syncStatusText');
+
+            if (syncIcon) syncIcon.classList.add('fa-spin');
+            if (syncPulse) syncPulse.className = "w-2.5 h-2.5 rounded-full bg-amber-500 inline-block animate-ping";
+            if (syncStatusText) syncStatusText.innerText = "Syncing...";
+
+            let fetchedSuccessfully = false;
+
+            try {
+                let response = await fetch(API_PRIMARY + '?cacheBust=' + Date.now(), { cache: 'no-cache' });
+                
+                if (!response.ok) {
+                    response = await fetch(API_BACKUP + '?cacheBust=' + Date.now(), { cache: 'no-cache' });
+                }
+
+                if (response.ok) {
+                    const data = await response.json();
+                    parseESPNStandings(data);
+                    fetchedSuccessfully = true;
+                } else {
+                    console.warn(`ESPN Standings returned status ${response.status}`);
+                }
+            } catch (err) {
+                console.error("Network error fetching ESPN standings:", err);
+            }
+
+            // UI updates based on fetch outcome
+            if (fetchedSuccessfully) {
+                if (syncPulse) syncPulse.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block";
+                if (syncStatusText) syncStatusText.innerText = "Connected (Live)";
+                if (isManual) showToast("Live standings successfully updated!");
+            } else {
+                if (syncPulse) syncPulse.className = "w-2.5 h-2.5 rounded-full bg-red-500 inline-block";
+                if (syncStatusText) syncStatusText.innerText = "Sync Alert (Retrying)";
+                if (isManual) showToast("Failed to fetch live standings. Please try again.", true);
+            }
+
+            if (syncIcon) syncIcon.classList.remove('fa-spin');
+            isFetching = false;
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('lastUpdatedText').innerText = `Last updated: ${timeStr}`;
+
+            renderAll();
+        }
+
+        // Parse ESPN API response structure
+        function parseESPNStandings(data) {
+            if (!data || !data.children) return;
+
+            try {
+                data.children.forEach(conference => {
+                    const entries = conference.standings?.entries || [];
+                    entries.forEach(entry => {
+                        const teamObj = entry.team;
+                        if (!teamObj) return;
+
+                        const abbrev = (teamObj.abbreviation || '').toUpperCase();
+                        const displayName = (teamObj.displayName || '').toUpperCase();
+                        const location = (teamObj.location || '').toUpperCase();
+                        const name = (teamObj.name || '').toUpperCase();
+
+                        const stats = entry.stats || [];
+
+                        const winsStat = stats.find(s => s.name === "wins" || s.type === "wins");
+                        const lossesStat = stats.find(s => s.name === "losses" || s.type === "losses");
+                        const pctStat = stats.find(s => s.name === "winPercent" || s.type === "winpercent");
+                        const streakStat = stats.find(s => s.name === "streak" || s.type === "streak");
+
+                        const wins = winsStat ? parseInt(winsStat.value) : 0;
+                        const losses = lossesStat ? parseInt(lossesStat.value) : 0;
+                        const gamesPlayed = wins + losses;
+                        const winPct = pctStat ? parseFloat(pctStat.value) : (gamesPlayed > 0 ? wins / gamesPlayed : 0);
+                        const streak = streakStat ? streakStat.displayValue : "--";
+                        const logo = teamObj.logos?.[0]?.href || `https://a.espncdn.com/i/teamlogos/nba/500/${abbrev.toLowerCase()}.png`;
+
+                        let matchedTeamKey = null;
+
+                        Object.keys(DRAFT_ROSTERS).forEach(player => {
+                            DRAFT_ROSTERS[player].forEach(draftTeam => {
+                                if (draftTeam.id === abbrev) {
+                                    matchedTeamKey = draftTeam.id;
+                                } else if (!matchedTeamKey && draftTeam.keywords) {
+                                    const hasKeyword = draftTeam.keywords.some(kw => 
+                                        displayName.includes(kw) || location.includes(kw) || name.includes(kw)
+                                    );
+                                    if (hasKeyword) {
+                                        matchedTeamKey = draftTeam.id;
+                                    }
+                                }
+                            });
+                        });
+
+                        if (matchedTeamKey && teamStatsMap[matchedTeamKey]) {
+                            teamStatsMap[matchedTeamKey] = {
+                                wins,
+                                losses,
+                                gamesPlayed,
+                                winPct,
+                                streak,
+                                logo,
+                                fullName: teamObj.displayName || teamStatsMap[matchedTeamKey].fullName
+                            };
+                        }
+                    });
+                });
+            } catch (err) {
+                console.error("Error parsing ESPN payload structure:", err);
+            }
+        }
+
+        // Calculate player performance metrics and games back
+        function getPlayerSummaries() {
+            let summaries = Object.keys(DRAFT_ROSTERS).map(player => {
+                const teams = DRAFT_ROSTERS[player];
+                let totalWins = 0;
+                let totalLosses = 0;
+                let totalGamesPlayed = 0;
+                let teamList = [];
+
+                teams.forEach(t => {
+                    const stats = teamStatsMap[t.id] || { 
+                        wins: 0, losses: 0, gamesPlayed: 0, winPct: 0, streak: "--", logo: "" 
+                    };
+
+                    totalWins += stats.wins;
+                    totalLosses += stats.losses;
+                    totalGamesPlayed += stats.gamesPlayed;
+
+                    teamList.push({
+                        ...t,
+                        wins: stats.wins,
+                        losses: stats.losses,
+                        gamesPlayed: stats.gamesPlayed,
+                        winPct: stats.winPct,
+                        streak: stats.streak,
+                        logo: stats.logo
+                    });
+                });
+
+                const winPct = totalGamesPlayed > 0 ? totalWins / totalGamesPlayed : 0;
+                const projectedWins = totalGamesPlayed > 0 ? Math.round((totalWins / totalGamesPlayed) * 820) : 0;
+
+                return {
+                    name: player,
+                    totalWins,
+                    totalLosses,
+                    totalGamesPlayed,
+                    winPct,
+                    projectedWins,
+                    teams: teamList,
+                    style: PLAYER_STYLES[player],
+                    gamesBack: 0
+                };
+            });
+
+            // Calculate Games Back relative to leader
+            summaries.sort((a, b) => b.totalWins - a.totalWins);
+            if (summaries.length > 0) {
+                const leaderWins = summaries[0].totalWins;
+                const leaderLosses = summaries[0].totalLosses;
+
+                summaries.forEach((p, idx) => {
+                    if (idx === 0) {
+                        p.gamesBack = 0;
+                    } else {
+                        p.gamesBack = ((leaderWins - p.totalWins) + (p.totalLosses - leaderLosses)) / 2;
+                    }
+                });
+            }
+
+            return summaries;
+        }
+
+        // Render UI Elements
+        function renderAll() {
+            renderHeroPodium();
+            renderLeaderboard();
+            renderRosters();
+        }
+
+        // Render Top Hero Summary Podium
+        function renderHeroPodium() {
+            const container = document.getElementById('podiumSummary');
+            if (!container) return;
+
+            let summaries = getPlayerSummaries();
+
+            let html = '';
+            summaries.forEach((p, index) => {
+                let rankTag = `#${index + 1}`;
+                let badgeClass = "bg-slate-800 text-slate-300";
+
+                if (index === 0) {
+                    rankTag = '<i class="fa-solid fa-crown mr-1"></i> 1st';
+                    badgeClass = "bg-amber-500 text-slate-950 font-black";
+                } else if (index === 1) {
+                    rankTag = '2nd';
+                    badgeClass = "bg-slate-300 text-slate-900 font-bold";
+                } else if (index === 2) {
+                    rankTag = '3rd';
+                    badgeClass = "bg-amber-800 text-amber-200 font-bold";
+                }
+
+                html += `
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 min-w-[135px] flex-1 flex flex-col items-center text-center shadow-lg">
+                        <div class="flex items-center space-x-1.5 mb-1">
+                            <span class="text-[10px] px-2 py-0.5 rounded-full ${badgeClass}">${rankTag}</span>
+                            <span class="font-bold text-sm text-white">${p.name}</span>
+                        </div>
+                        <div class="text-2xl font-black text-amber-400 tracking-tight">${p.totalWins} <span class="text-xs text-slate-400 font-normal">Wins</span></div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">${p.gamesBack === 0 ? 'Leader' : `${p.gamesBack} GB`} • Pace: ${p.projectedWins}W</div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Render Main Leaderboard Player Cards
+        function renderLeaderboard() {
+            const container = document.getElementById('playerLeaderboardGrid');
+            if (!container) return;
+
+            let summaries = getPlayerSummaries();
+
+            let html = '';
+            summaries.forEach((player, index) => {
+                const rank = index + 1;
+                let cardBorderClass = "border-slate-800";
+                let rankBadge = `<span class="bg-slate-800 text-slate-400 text-xs font-bold px-2.5 py-1 rounded-lg">#${rank}</span>`;
+
+                if (rank === 1) {
+                    cardBorderClass = "gold-border";
+                    rankBadge = `<span class="bg-amber-500 text-slate-950 text-xs font-black px-3 py-1 rounded-lg shadow flex items-center gap-1.5"><i class="fa-solid fa-trophy"></i> Leader</span>`;
+                } else if (rank === 2) {
+                    cardBorderClass = "silver-border";
+                    rankBadge = `<span class="bg-slate-300 text-slate-950 text-xs font-bold px-2.5 py-1 rounded-lg">2nd Place</span>`;
+                } else if (rank === 3) {
+                    cardBorderClass = "bronze-border";
+                    rankBadge = `<span class="bg-amber-800/80 text-amber-200 text-xs font-bold px-2.5 py-1 rounded-lg">3rd Place</span>`;
+                }
+
+                const topTeam = [...player.teams].sort((a, b) => b.wins - a.wins)[0];
+
+                html += `
+                    <div class="glass-panel rounded-2xl p-6 ${cardBorderClass} relative flex flex-col justify-between">
+                        <div>
+                            <!-- Header Info -->
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center space-x-3">
+                                    <img src="${player.style.avatar}" alt="${player.name}" class="w-12 h-12 rounded-xl bg-slate-900 p-1 border border-slate-700/60">
+                                    <div>
+                                        <h3 class="text-xl font-black text-white">${player.name}</h3>
+                                        <span class="text-[11px] px-2 py-0.5 rounded ${player.style.badge}">10 Teams Drafted</span>
+                                    </div>
+                                </div>
+                                ${rankBadge}
+                            </div>
+
+                            <!-- Stat Summary Card -->
+                            <div class="bg-slate-900/90 rounded-xl p-4 my-4 border border-slate-800/80 flex items-center justify-between">
+                                <div>
+                                    <div class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Total Wins</div>
+                                    <div class="text-3xl font-black text-amber-400 tracking-tight mt-0.5">${player.totalWins}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Record</div>
+                                    <div class="text-sm font-bold text-slate-200 mt-1">${player.totalWins}-${player.totalLosses}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Games Back</div>
+                                    <div class="text-sm font-bold text-blue-400 mt-1">${player.gamesBack === 0 ? '0.0' : `-${player.gamesBack}`}</div>
+                                </div>
+                            </div>
+
+                            <!-- Projected Season Wins Pace -->
+                            <div class="space-y-1.5 mb-4">
+                                <div class="flex justify-between text-xs text-slate-400">
+                                    <span>Paced Season Projection:</span>
+                                    <span class="font-bold text-slate-200">${player.projectedWins} Wins</span>
+                                </div>
+                                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                                    <div class="bg-gradient-to-r ${player.style.gradient} h-full rounded-full" style="width: ${Math.min(100, (player.totalWins / 450) * 100)}%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Top Team Card Footer -->
+                        <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                            <span class="text-slate-400">Top Team:</span>
+                            <div class="flex items-center space-x-2">
+                                <img src="${topTeam.logo}" class="w-5 h-5 object-contain" onerror="this.src='https://placehold.co/20x20/1e293b/ffffff?text=${topTeam.id}'">
+                                <span class="font-bold text-slate-200">${topTeam.name}</span>
+                                <span class="text-emerald-400 font-bold">(${topTeam.wins}W)</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Render Team Rosters Grid
+        function renderRosters() {
+            const container = document.getElementById('teamsRosterContainer');
+            if (!container) return;
+
+            const searchQuery = (document.getElementById('teamSearchInput')?.value || '').toLowerCase().trim();
+            const sortBy = document.getElementById('teamSortSelect')?.value || 'wins';
+
+            let summaries = getPlayerSummaries();
+
+            if (activeTab !== 'all') {
+                summaries = summaries.filter(p => p.name === activeTab);
+            }
+
+            let html = '';
+
+            summaries.forEach(player => {
+                let filteredTeams = player.teams.filter(t => {
+                    return t.name.toLowerCase().includes(searchQuery) ||
+                           t.id.toLowerCase().includes(searchQuery) ||
+                           player.name.toLowerCase().includes(searchQuery);
+                });
+
+                if (sortBy === 'wins') {
+                    filteredTeams.sort((a, b) => b.wins - a.wins);
+                } else if (sortBy === 'winPct') {
+                    filteredTeams.sort((a, b) => b.winPct - a.winPct);
+                } else if (sortBy === 'name') {
+                    filteredTeams.sort((a, b) => a.name.localeCompare(b.name));
+                }
+
+                if (filteredTeams.length === 0 && searchQuery !== '') return;
+
+                html += `
+                    <div class="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+                        <!-- Header Bar -->
+                        <div class="bg-slate-800/50 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <img src="${player.style.avatar}" class="w-8 h-8 rounded-lg bg-slate-900 p-0.5 border border-slate-700/60">
+                                <div>
+                                    <h4 class="text-base font-extrabold text-white">${player.name}'s Draft Roster</h4>
+                                    <p class="text-xs text-slate-400">Total Combined Wins: <strong class="text-amber-400">${player.totalWins}</strong> (${player.totalWins}-${player.totalLosses})</p>
+                                </div>
+                            </div>
+                            <span class="text-xs px-2.5 py-1 rounded-full ${player.style.badge} font-bold">
+                                ${filteredTeams.length} Teams
+                            </span>
+                        </div>
+
+                        <!-- Grid Cards -->
+                        <div class="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                            ${filteredTeams.map(team => `
+                                <div class="bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/50 rounded-xl p-4 transition flex flex-col justify-between">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div class="w-10 h-10 rounded-lg bg-slate-900 p-1.5 flex items-center justify-center border border-slate-800">
+                                                <img src="${team.logo}" alt="${team.name}" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/40x40/1e293b/ffffff?text=${team.id}'">
+                                            </div>
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-700/60 text-slate-300">
+                                                ${team.id}
+                                            </span>
+                                        </div>
+
+                                        <h5 class="font-bold text-sm text-slate-100 line-clamp-1 mb-1" title="${team.name}">${team.name}</h5>
+
+                                        <div class="flex items-baseline justify-between mt-2">
+                                            <span class="text-2xl font-black text-amber-400">${team.wins} <span class="text-xs font-normal text-slate-400">W</span></span>
+                                            <span class="text-xs text-slate-400 font-mono">${team.wins}-${team.losses}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3 pt-3 border-t border-slate-700/40 flex items-center justify-between text-[11px] text-slate-400">
+                                        <span>Played: <strong class="text-slate-200">${team.gamesPlayed}</strong></span>
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${team.streak.startsWith('W') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}">
+                                            ${team.streak}
+                                        </span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (html === '') {
+                html = `
+                    <div class="text-center py-12 bg-slate-900/50 rounded-2xl border border-slate-800">
+                        <i class="fa-solid fa-magnifying-glass text-3xl text-slate-600 mb-3"></i>
+                        <p class="text-slate-400 text-sm">No drafted teams match your filter query.</p>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // Active Player Tab Toggle Handler
+        function setActiveTab(tab) {
+            activeTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = "tab-btn px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all";
+            });
+
+            const activeBtn = document.getElementById(`tab-${tab}`);
+            if (activeBtn) {
+                activeBtn.className = "tab-btn px-4 py-2 rounded-lg text-xs font-bold transition-all bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md";
+            }
+
+            renderRosters();
+        }
+
+        // Sync Timer Interval Handler
+        function updateSyncInterval() {
+            const intervalMs = parseInt(document.getElementById('syncIntervalSelect').value);
+            if (syncTimer) clearInterval(syncTimer);
+
+            if (intervalMs > 0) {
+                syncTimer = setInterval(() => {
+                    fetchLiveStandings();
+                }, intervalMs);
+            }
+        }
+
+        // Copy Shareable Link Helper
+        function copyShareableLink() {
+            const dummy = document.createElement('input');
+            document.body.appendChild(dummy);
+            dummy.value = window.location.href;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+
+            showToast("Website link copied to clipboard!");
+        }
+
+        // Deployment Guide Accordion Toggle
+        function toggleGuide() {
+            const guide = document.getElementById('deploymentGuideContent');
+            const icon = document.getElementById('guideToggleIcon');
+            if (!guide) return;
+
+            guide.classList.toggle('hidden');
+            if (icon) {
+                icon.classList.toggle('rotate-180');
+            }
+        }
+
+        // Custom Toast Notification
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toastNotification');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+            if (!toast || !toastMsg) return;
+
+            toastMsg.innerText = message;
+            if (isError) {
+                toastIcon.className = "fa-solid fa-circle-exclamation text-red-400";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
